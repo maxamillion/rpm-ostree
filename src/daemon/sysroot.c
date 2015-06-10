@@ -116,7 +116,7 @@ _build_file (const char *first, ...)
   va_end (args);
 
   g_ptr_array_add (parts, NULL);
-  path = g_build_filename ((gchar**)parts->pdata);
+  path = g_build_filenamev ((gchar**)parts->pdata);
   return g_file_new_for_path (path);
 }
 
