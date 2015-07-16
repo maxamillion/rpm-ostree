@@ -76,7 +76,7 @@ rpmostree_builtin_rebase (int             argc,
   glnx_unref_object RPMOSTreeOS *os_proxy = NULL;
   glnx_unref_object RPMOSTreeSysroot *sysroot_proxy = NULL;
   g_autofree char *transaction_object_path = NULL;
-  g_autoptr (GVariant) variant_args = NULL;
+  g_autoptr(GVariant) variant_args = NULL;
 
   if (!rpmostree_option_context_parse (context, option_entries, &argc, &argv, error))
     goto out;
@@ -115,7 +115,7 @@ rpmostree_builtin_rebase (int             argc,
 
   if (!opt_reboot)
     {
-      // by request, doing this without dbus
+      /* By request, doing this without dbus */
       if (!rpmostree_print_treepkg_diff_from_sysroot_path (opt_sysroot,
                                                            cancellable,
                                                            error))
