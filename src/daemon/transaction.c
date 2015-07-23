@@ -82,9 +82,12 @@ transaction_owner_vanished_cb (GDBusConnection *connection,
 
   if (transaction->watch_id > 0)
     {
-      g_signal_emit (transaction, signals[OWNER_VANISHED], 0);
       g_bus_unwatch_name (transaction->watch_id);
       transaction->watch_id = 0;
+
+      /* Emit the signal AFTER unwatching the bus name, since this
+       * may finalize the transaction and invalidate the watch_id. */
+      g_signal_emit (transaction, signals[OWNER_VANISHED], 0);
     }
 }
 
