@@ -65,7 +65,6 @@ rpmostree_builtin_rebase (int             argc,
                           GError        **error)
 {
   gboolean ret = FALSE;
-  gboolean is_peer = FALSE;
   const char *new_provided_refspec;
 
   /* forced blank for now */
@@ -86,11 +85,10 @@ rpmostree_builtin_rebase (int             argc,
                                               cancellable,
                                               &connection,
                                               &sysroot_proxy,
-                                              &is_peer,
                                               error))
     goto out;
 
-  if (!rpmostree_load_os_proxy (sysroot_proxy, NULL, is_peer,
+  if (!rpmostree_load_os_proxy (sysroot_proxy, NULL,
                                 cancellable, &os_proxy, error))
     goto out;
 
@@ -133,8 +131,8 @@ rpmostree_builtin_rebase (int             argc,
   ret = TRUE;
 
 out:
-  if (is_peer)
-    rpmostree_cleanup_peer ();
+  /* Does nothing if using the message bus. */
+  rpmostree_cleanup_peer ();
 
   return ret;
 }
