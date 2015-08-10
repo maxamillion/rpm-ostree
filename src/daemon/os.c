@@ -628,6 +628,7 @@ osstub_rollback_thread (GTask         *task,
   const char *csum;
   g_autoptr(GPtrArray) deployments = NULL;
   g_autoptr(GPtrArray) new_deployments = NULL;
+  g_autofree char *message;
 
   GError *error = NULL;
 
@@ -656,9 +657,9 @@ osstub_rollback_thread (GTask         *task,
 
   csum = ostree_deployment_get_csum (deployments->pdata[rollback_index]);
   deployserial = ostree_deployment_get_deployserial (deployments->pdata[rollback_index]);
-  rpmostree_transaction_emit_message (data->transaction,
-                                      g_strdup_printf ("Moving '%s.%d' to be first deployment\n",
-                                                       csum, deployserial));
+  message = g_strdup_printf ("Moving '%s.%d' to be first deployment\n",
+                             csum, deployserial);
+  rpmostree_transaction_emit_message (data->transaction, message);
 
   /* if default changed write it */
   if (deployments->pdata[0] != new_deployments->pdata[0])
