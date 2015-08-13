@@ -820,7 +820,11 @@ osstub_handle_pull_dir (RPMOSTreeOS *interface,
     goto out;
 
   transaction = transaction_monitor_new_transaction (os->transaction_monitor,
-                                                     invocation, cancellable);
+                                                     invocation, cancellable,
+                                                     &local_error);
+
+  if (transaction == NULL)
+    goto out;
 
   data = g_slice_new0 (TaskData);
   data->sysroot = g_object_ref (sysroot);
@@ -860,7 +864,11 @@ osstub_handle_deploy (RPMOSTreeOS *interface,
     goto out;
 
   transaction = transaction_monitor_new_transaction (os->transaction_monitor,
-                                                     invocation, cancellable);
+                                                     invocation, cancellable,
+                                                     &local_error);
+
+  if (transaction == NULL)
+    goto out;
 
   data = g_slice_new0 (TaskData);
   data->sysroot = g_object_ref (sysroot);
@@ -962,7 +970,11 @@ osstub_handle_rollback (RPMOSTreeOS *interface,
     goto out;
 
   transaction = transaction_monitor_new_transaction (os->transaction_monitor,
-                                                     invocation, cancellable);
+                                                     invocation, cancellable,
+                                                     &local_error);
+
+  if (transaction == NULL)
+    goto out;
 
   data = g_slice_new0 (TaskData);
   data->sysroot = g_object_ref (sysroot);
@@ -1001,7 +1013,11 @@ osstub_handle_clear_rollback_target (RPMOSTreeOS *interface,
     goto out;
 
   transaction = transaction_monitor_new_transaction (os->transaction_monitor,
-                                                     invocation, cancellable);
+                                                     invocation, cancellable,
+                                                     &local_error);
+
+  if (transaction == NULL)
+    goto out;
 
   data = g_slice_new0 (TaskData);
   data->sysroot = g_object_ref (sysroot);
