@@ -29,6 +29,9 @@ struct _Transaction
   RPMOSTreeTransactionSkeleton parent;
   GCancellable *cancellable;
 
+  /* Locked for the duration of the transaction. */
+  OstreeSysroot *sysroot;
+
   gboolean success;
   char *message;
 
@@ -41,7 +44,8 @@ struct _TransactionClass
 };
 
 enum {
-  PROP_0
+  PROP_0,
+  PROP_SYSROOT
 };
 
 enum {
@@ -215,6 +219,9 @@ transaction_set_property (GObject *object,
 
   switch (property_id)
     {
+      case PROP_SYSROOT:
+        transaction->sysroot = g_value_dup_object (value);
+        break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -231,6 +238,9 @@ transaction_get_property (GObject *object,
 
   switch (property_id)
     {
+      case PROP_SYSROOT:
+        g_value_set_object (value, transaction->sysroot);
+        break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -242,7 +252,11 @@ transaction_dispose (GObject *object)
 {
   Transaction *transaction = TRANSACTION (object);
 
+  if (transaction->sysroot != NULL)
+    ostree_sysroot_unlock (transaction->sysroot);
+
   g_clear_object (&transaction->cancellable);
+  g_clear_object (&transaction->sysroot);
 
   G_OBJECT_CLASS (transaction_parent_class)->dispose (object);
 }
@@ -266,11 +280,31 @@ transaction_initable_init (GInitable *initable,
                            GError **error)
 {
   Transaction *transaction = TRANSACTION (initable);
+  gboolean ret = FALSE;
 
   if (G_IS_CANCELLABLE (cancellable))
     transaction->cancellable = g_object_ref (cancellable);
 
-  return TRUE;
+  if (transaction->sysroot != NULL)
+    {
+      gboolean lock_acquired = FALSE;
+
+      if (!ostree_sysroot_try_lock (transaction->sysroot,
+                                    &lock_acquired, error))
+        goto out;
+
+      if (!lock_acquired)
+        {
+          g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_BUSY,
+                               "System transaction in progress");
+          goto out;
+        }
+    }
+
+  ret = TRUE;
+
+out:
+  return ret;
 }
 
 static gboolean
@@ -342,6 +376,16 @@ transaction_class_init (TransactionClass *class)
   object_class->dispose = transaction_dispose;
   object_class->finalize = transaction_finalize;
 
+  g_object_class_install_property (object_class,
+                                   PROP_SYSROOT,
+                                   g_param_spec_object ("sysroot",
+                                                        "Sysroot",
+                                                        "An OstreeSysroot instance",
+                                                        OSTREE_TYPE_SYSROOT,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
   signals[CANCELLED] = g_signal_new ("cancelled",
                                      TYPE_TRANSACTION,
                                      G_SIGNAL_RUN_LAST,
@@ -381,6 +425,7 @@ transaction_init (Transaction *transaction)
 
 RPMOSTreeTransaction *
 transaction_new (GDBusMethodInvocation *invocation,
+                 OstreeSysroot *sysroot,
                  GCancellable *cancellable,
                  GError **error)
 {
@@ -389,6 +434,7 @@ transaction_new (GDBusMethodInvocation *invocation,
   const char *method_name;
   const char *sender;
 
+  /* sysroot is optional */
   g_return_val_if_fail (G_IS_DBUS_METHOD_INVOCATION (invocation), NULL);
 
   method_name = g_dbus_method_invocation_get_method_name (invocation);
@@ -396,6 +442,7 @@ transaction_new (GDBusMethodInvocation *invocation,
 
   transaction = g_initable_new (TYPE_TRANSACTION,
                                 cancellable, error,
+                                "sysroot", sysroot,
                                 "method-name", method_name,
                                 "owner", sender,
                                 "active", TRUE,
@@ -421,6 +468,18 @@ transaction_new (GDBusMethodInvocation *invocation,
 
 out:
   return (RPMOSTreeTransaction *) transaction;
+}
+
+OstreeSysroot *
+transaction_get_sysroot (RPMOSTreeTransaction *transaction)
+{
+  Transaction *real_transaction;
+
+  g_return_val_if_fail (RPMOSTREE_IS_TRANSACTION (transaction), NULL);
+
+  real_transaction = TRANSACTION (transaction);
+
+  return real_transaction->sysroot;
 }
 
 void

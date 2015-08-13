@@ -27,11 +27,13 @@
 GType           transaction_get_type            (void) G_GNUC_CONST;
 RPMOSTreeTransaction *
                 transaction_new                 (GDBusMethodInvocation *invocation,
+                                                 OstreeSysroot *sysroot,
                                                  GCancellable *cancellable,
                                                  GError **error);
 void            transaction_done                (RPMOSTreeTransaction *transaction,
                                                  gboolean success,
                                                  const char *message);
+OstreeSysroot * transaction_get_sysroot         (RPMOSTreeTransaction *transaction);
 void            transaction_connect_download_progress
                                                 (RPMOSTreeTransaction *transaction,
                                                  OstreeAsyncProgress *progress);
