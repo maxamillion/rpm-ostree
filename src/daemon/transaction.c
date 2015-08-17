@@ -559,6 +559,24 @@ transaction_get_sysroot (RPMOSTreeTransaction *transaction)
 }
 
 void
+transaction_emit_message_printf (RPMOSTreeTransaction *transaction,
+                                 const char *format,
+                                 ...)
+{
+  g_autofree char *message = NULL;
+  va_list args;
+
+  g_return_if_fail (RPMOSTREE_IS_TRANSACTION (transaction));
+  g_return_if_fail (format != NULL);
+
+  va_start (args, format);
+  message = g_strdup_vprintf (format, args);
+  va_end (args);
+
+  rpmostree_transaction_emit_message (transaction, message);
+}
+
+void
 transaction_done (RPMOSTreeTransaction *transaction,
                   gboolean success,
                   const char *message)

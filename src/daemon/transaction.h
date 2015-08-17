@@ -50,6 +50,9 @@ void            transaction_done                (RPMOSTreeTransaction *transacti
                                                  gboolean success,
                                                  const char *message);
 OstreeSysroot * transaction_get_sysroot         (RPMOSTreeTransaction *transaction);
+void            transaction_emit_message_printf (RPMOSTreeTransaction *transaction,
+                                                 const char *format,
+                                                 ...) G_GNUC_PRINTF (2, 3);
 void            transaction_connect_download_progress
                                                 (RPMOSTreeTransaction *transaction,
                                                  OstreeAsyncProgress *progress);

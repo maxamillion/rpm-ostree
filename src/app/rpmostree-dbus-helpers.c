@@ -379,7 +379,7 @@ on_transaction_progress (GDBusProxy *proxy,
       if (tp->in_status_line)
         add_status_line (tp, message);
       else
-        g_print ("%s", message);
+        g_print ("%s\n", message);
     }
   else if (g_strcmp0 (signal_name, "DownloadProgress") == 0)
     {

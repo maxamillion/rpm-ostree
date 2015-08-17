@@ -463,9 +463,9 @@ osstub_pull_dir_thread (GTask *task,
 
   origin_description = ostree_sysroot_upgrader_get_origin_description (upgrader);
   if (origin_description != NULL)
-    rpmostree_transaction_emit_message (data->transaction,
-                                        g_strdup_printf ("Updating from: %s\n",
-                                                         origin_description));
+    transaction_emit_message_printf (data->transaction,
+                                     "Updating from: %s",
+                                     origin_description);
 
   if (!ostree_sysroot_get_repo (sysroot, &repo, cancellable, &local_error))
     goto out;
@@ -558,9 +558,9 @@ osstub_upgrade_thread (GTask *task,
 
   origin_description = ostree_sysroot_upgrader_get_origin_description (upgrader);
   if (origin_description != NULL)
-    rpmostree_transaction_emit_message (data->transaction,
-                                        g_strdup_printf ("Updating from: %s\n",
-                                                         origin_description));
+    transaction_emit_message_printf (data->transaction,
+                                     "Updating from: %s",
+                                     origin_description);
 
   progress = ostree_async_progress_new ();
   transaction_connect_download_progress (data->transaction, progress);
@@ -592,9 +592,9 @@ osstub_upgrade_thread (GTask *task,
 
           ostree_repo_transaction_set_ref (repo, remote, ref, NULL);
 
-          rpmostree_transaction_emit_message (data->transaction,
-                                        g_strdup_printf ("deleting ref %s\n",
-                                                         old_refspec));
+          transaction_emit_message_printf (data->transaction,
+                                           "deleting ref %s",
+                                           old_refspec);
 
           if (!ostree_repo_commit_transaction (repo, NULL, cancellable, &local_error))
             goto out;
@@ -629,7 +629,6 @@ osstub_rollback_thread (GTask         *task,
   const char *csum;
   g_autoptr(GPtrArray) deployments = NULL;
   g_autoptr(GPtrArray) new_deployments = NULL;
-  g_autofree char *message;
 
   GError *error = NULL;
 
@@ -659,9 +658,9 @@ osstub_rollback_thread (GTask         *task,
 
   csum = ostree_deployment_get_csum (deployments->pdata[rollback_index]);
   deployserial = ostree_deployment_get_deployserial (deployments->pdata[rollback_index]);
-  message = g_strdup_printf ("Moving '%s.%d' to be first deployment\n",
-                             csum, deployserial);
-  rpmostree_transaction_emit_message (data->transaction, message);
+  transaction_emit_message_printf (data->transaction,
+                                   "Moving '%s.%d' to be first deployment",
+                                   csum, deployserial);
 
   /* if default changed write it */
   if (deployments->pdata[0] != new_deployments->pdata[0])
