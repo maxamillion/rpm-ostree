@@ -34,8 +34,6 @@ struct _TransactionPrivate {
   GDBusConnection *peer_connection;
 
   gboolean started;
-  gboolean success;
-  char *message;
 
   guint watch_id;
 };
@@ -48,7 +46,7 @@ enum {
 
 enum {
   CANCELLED,
-  FINISHED,
+  CLOSED,
   OWNER_VANISHED,
   LAST_SIGNAL
 };
@@ -77,6 +75,15 @@ transaction_get_private (Transaction *self)
   return self->priv;
 }
 
+static void
+transaction_connection_closed_cb (GDBusConnection *connection,
+                                  gboolean remote_peer_vanished,
+                                  GError *error,
+                                  Transaction *self)
+{
+  g_signal_emit (self, signals[CLOSED], 0);
+}
+
 static gboolean
 transaction_new_connection_cb (GDBusServer *server,
                                GDBusConnection *connection,
@@ -97,6 +104,11 @@ transaction_new_connection_cb (GDBusServer *server,
       g_clear_error (&local_error);
       return FALSE;
     }
+
+  g_signal_connect_object (connection,
+                           "closed",
+                           G_CALLBACK (transaction_connection_closed_cb),
+                           self, 0);
 
   priv->peer_connection = g_object_ref (connection);
 
@@ -261,7 +273,7 @@ transaction_execute_done_cb (GObject *source_object,
 {
   Transaction *self = TRANSACTION (source_object);
   TransactionPrivate *priv = transaction_get_private (self);
-  const char *message = NULL;
+  const char *error_message = NULL;
   gboolean success;
   GError *local_error = NULL;
 
@@ -272,18 +284,18 @@ transaction_execute_done_cb (GObject *source_object,
                   (!success && local_error != NULL));
 
   if (local_error != NULL)
-    message = local_error->message;
+    error_message = local_error->message;
 
-  if (message == NULL)
-    message = "";
-
-  priv->success = success;
-  priv->message = g_strdup (message);
+  if (error_message == NULL)
+    error_message = "";
 
   if (success && priv->sysroot != NULL)
     sysroot_emit_update (sysroot_get (), priv->sysroot);
 
   rpmostree_transaction_set_active (RPMOSTREE_TRANSACTION (self), FALSE);
+
+  rpmostree_transaction_emit_finished (RPMOSTREE_TRANSACTION (self),
+                                       success, error_message);
 }
 
 static void
@@ -354,8 +366,6 @@ transaction_finalize (GObject *object)
 {
   Transaction *self = TRANSACTION (object);
   TransactionPrivate *priv = transaction_get_private (self);
-
-  g_free (priv->message);
 
   if (priv->watch_id > 0)
     g_bus_unwatch_name (priv->watch_id);
@@ -504,32 +514,6 @@ transaction_handle_start (RPMOSTreeTransaction *transaction,
   return TRUE;
 }
 
-static gboolean
-transaction_handle_finish (RPMOSTreeTransaction *transaction,
-                           GDBusMethodInvocation *invocation)
-{
-  Transaction *self = TRANSACTION (transaction);
-  TransactionPrivate *priv = transaction_get_private (self);
-
-  if (rpmostree_transaction_get_active (transaction))
-    {
-      g_dbus_method_invocation_return_error (invocation,
-                                             RPM_OSTREED_ERROR,
-                                             RPM_OSTREED_ERROR_FAILED,
-                                             "Transaction is still active");
-    }
-  else
-    {
-      g_signal_emit (transaction, signals[FINISHED], 0);
-      rpmostree_transaction_complete_finish (transaction, invocation,
-                                             priv->success,
-                                             priv->message ?
-                                             priv->message : "");
-    }
-
-  return TRUE;
-}
-
 static void
 transaction_class_init (TransactionClass *class)
 {
@@ -570,11 +554,11 @@ transaction_class_init (TransactionClass *class)
                                      0, NULL, NULL, NULL,
                                      G_TYPE_NONE, 0);
 
-  signals[FINISHED] = g_signal_new ("finished",
-                                    TYPE_TRANSACTION,
-                                    G_SIGNAL_RUN_LAST,
-                                    0, NULL, NULL, NULL,
-                                    G_TYPE_NONE, 0);
+  signals[CLOSED] = g_signal_new ("closed",
+                                  TYPE_TRANSACTION,
+                                  G_SIGNAL_RUN_LAST,
+                                  0, NULL, NULL, NULL,
+                                  G_TYPE_NONE, 0);
 
   signals[OWNER_VANISHED] = g_signal_new ("owner-vanished",
                                           TYPE_TRANSACTION,
@@ -594,7 +578,6 @@ transaction_dbus_iface_init (RPMOSTreeTransactionIface *iface)
 {
   iface->handle_cancel = transaction_handle_cancel;
   iface->handle_start  = transaction_handle_start;
-  iface->handle_finish = transaction_handle_finish;
 }
 
 static void
