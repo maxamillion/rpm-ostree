@@ -81,6 +81,9 @@ transaction_connection_closed_cb (GDBusConnection *connection,
                                   GError *error,
                                   Transaction *self)
 {
+  g_debug ("%s (%p): Client disconnected",
+           G_OBJECT_TYPE_NAME (self), self);
+
   g_signal_emit (self, signals[CLOSED], 0);
 }
 
@@ -111,6 +114,9 @@ transaction_new_connection_cb (GDBusServer *server,
                            self, 0);
 
   priv->peer_connection = g_object_ref (connection);
+
+  g_debug ("%s (%p): Client connected",
+           G_OBJECT_TYPE_NAME (self), self);
 
   return TRUE;
 }
@@ -292,6 +298,12 @@ transaction_execute_done_cb (GObject *source_object,
   if (success && priv->sysroot != NULL)
     sysroot_emit_update (sysroot_get (), priv->sysroot);
 
+  g_debug ("%s (%p): Finished%s%s%s",
+           G_OBJECT_TYPE_NAME (self), self,
+           success ? "" : " (error: ",
+           success ? "" : error_message,
+           success ? "" : ")");
+
   rpmostree_transaction_set_active (RPMOSTREE_TRANSACTION (self), FALSE);
 
   rpmostree_transaction_emit_finished (RPMOSTREE_TRANSACTION (self),
@@ -366,6 +378,8 @@ transaction_finalize (GObject *object)
 {
   Transaction *self = TRANSACTION (object);
   TransactionPrivate *priv = transaction_get_private (self);
+
+  g_debug ("%s (%p): Finalized", G_OBJECT_TYPE_NAME (self), self);
 
   if (priv->watch_id > 0)
     g_bus_unwatch_name (priv->watch_id);
@@ -458,6 +472,10 @@ transaction_initable_init (GInitable *initable,
 
   g_dbus_server_start (priv->server);
 
+  g_debug ("%s (%p): Initialized, listening on %s",
+           G_OBJECT_TYPE_NAME (self), self,
+           transaction_get_client_address (self));
+
   ret = TRUE;
 
 out:
@@ -473,6 +491,8 @@ transaction_handle_cancel (RPMOSTreeTransaction *transaction,
 
   if (priv->cancellable == NULL)
     return FALSE;
+
+  g_debug ("%s (%p): Cancelled", G_OBJECT_TYPE_NAME (self), self);
 
   g_cancellable_cancel (priv->cancellable);
   g_signal_emit (transaction, signals[CANCELLED], 0);
@@ -498,6 +518,8 @@ transaction_handle_start (RPMOSTreeTransaction *transaction,
   else
     {
       GTask *task;
+
+      g_debug ("%s (%p): Started", G_OBJECT_TYPE_NAME (self), self);
 
       priv->started = TRUE;
 
