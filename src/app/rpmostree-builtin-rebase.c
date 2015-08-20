@@ -47,13 +47,13 @@ static GOptionEntry option_entries[] = {
 static GVariant *
 get_args_variant (void)
 {
-  GVariantBuilder builder;
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "skip-purge",
-                         g_variant_new ("b", opt_skip_purge));
-  return g_variant_ref_sink (g_variant_builder_end (&builder));
-}
+  GVariantDict dict;
 
+  g_variant_dict_init (&dict, NULL);
+  g_variant_dict_insert (&dict, "skip-purge", "b", opt_skip_purge);
+
+  return g_variant_dict_end (&dict);
+}
 
 gboolean
 rpmostree_builtin_rebase (int             argc,
@@ -70,7 +70,6 @@ rpmostree_builtin_rebase (int             argc,
   GOptionContext *context = g_option_context_new ("REFSPEC - Switch to a different tree");
   glnx_unref_object RPMOSTreeOS *os_proxy = NULL;
   glnx_unref_object RPMOSTreeSysroot *sysroot_proxy = NULL;
-  g_autoptr(GVariant) variant_args = NULL;
   g_autofree char *transaction_address = NULL;
 
   if (!rpmostree_option_context_parse (context,
@@ -88,10 +87,8 @@ rpmostree_builtin_rebase (int             argc,
 
   new_provided_refspec = argv[1];
 
-  variant_args = get_args_variant ();
-
   if (!rpmostree_os_call_rebase_sync (os_proxy,
-                                      variant_args,
+                                      get_args_variant (),
                                       new_provided_refspec,
                                       packages,
                                       &transaction_address,

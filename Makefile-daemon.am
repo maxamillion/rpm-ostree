@@ -46,7 +46,7 @@ librpmostreed_la_SOURCES = \
 librpmostreed_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(PKGDEP_RPMOSTREE_CFLAGS) \
-	-DG_LOG_DOMAIN=\"rpm-ostree\" \
+	-DG_LOG_DOMAIN=\"rpm-ostreed\" \
 	-I$(srcdir)/src/daemon \
 	-I$(srcdir)/src/lib \
 	-I$(libglnx_srcpath) \

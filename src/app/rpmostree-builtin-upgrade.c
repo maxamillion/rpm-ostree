@@ -50,11 +50,12 @@ static GOptionEntry option_entries[] = {
 static GVariant *
 get_args_variant (void)
 {
-  GVariantBuilder builder;
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{sv}", "allow-downgrade",
-                         g_variant_new ("b", opt_allow_downgrade));
-  return g_variant_ref_sink (g_variant_builder_end (&builder));
+  GVariantDict dict;
+
+  g_variant_dict_init (&dict, NULL);
+  g_variant_dict_insert (&dict, "allow-downgrade", "b", opt_allow_downgrade);
+
+  return g_variant_dict_end (&dict);
 }
 
 static void
@@ -103,13 +104,12 @@ rpmostree_builtin_upgrade (int             argc,
     }
   else
     {
-      g_autoptr(GVariant) variant_args = NULL;
-      variant_args = get_args_variant ();
       g_signal_connect (os_proxy, "notify::default-deployment",
                         G_CALLBACK (default_changed_callback),
                         &default_deployment);
+
       if (!rpmostree_os_call_upgrade_sync (os_proxy,
-                                           variant_args,
+                                           get_args_variant (),
                                            &transaction_address,
                                            cancellable,
                                            error))

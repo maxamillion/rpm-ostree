@@ -139,9 +139,9 @@ on_sigint (gpointer user_data)
 
 
 static gboolean
-on_stdout_close (GIOChannel *channel,
-                 GIOCondition condition,
-                 gpointer data)
+on_stdin_close (GIOChannel *channel,
+                GIOCondition condition,
+                gpointer data)
 {
   /* Nowhere to log */
   syslog (LOG_INFO, "%s", "output closed");
@@ -159,7 +159,6 @@ on_log_debug (const gchar *log_domain,
   GString *string;
   const gchar *progname;
   const gchar *level;
-  int ret;
 
   string = g_string_new (NULL);
   switch (log_level & G_LOG_LEVEL_MASK)
@@ -177,15 +176,20 @@ on_log_debug (const gchar *log_domain,
 
 
   progname = g_get_prgname ();
-  g_string_append_printf (string, "(%s:%lu): %s%s%s: %s\n",
-                          progname ? progname : "process", (gulong)getpid (),
-                          log_domain ? log_domain : "", log_domain ? "-" : "",
-                          level, message ? message : "(NULL) message");
+  if (progname == NULL)
+    progname = "process";
 
-  ret = write (1, string->str, string->len);
+  if (message == NULL)
+    message = "(NULL) message";
 
-  /* Yes this is dumb, but gets around compiler warning */
-  ret = ret;
+  g_string_append_printf (string, "(%s:%lu): ", progname, (gulong) getpid ());
+
+  if (log_domain != NULL)
+    g_string_append_printf (string, "%s-", log_domain);
+
+  g_string_append_printf (string, "%s: %s", level, message);
+
+  g_printerr ("%s\n", string->str);
 
   g_string_free (string, TRUE);
 }
@@ -352,7 +356,7 @@ main (int argc,
 
       /* When in debug mode (often testing) we exit when stdin closes */
       channel = g_io_channel_unix_new (0);
-      g_io_add_watch (channel, G_IO_HUP, on_stdout_close, NULL);
+      g_io_add_watch (channel, G_IO_HUP, on_stdin_close, NULL);
       g_io_channel_unref (channel);
     }
   else

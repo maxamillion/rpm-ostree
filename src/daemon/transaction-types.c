@@ -251,13 +251,12 @@ rollback_transaction_execute (Transaction *transaction,
 {
   RollbackTransaction *self;
   OstreeSysroot *sysroot;
-  const char *csum;
-  g_autoptr(GPtrArray) deployments = NULL;
+  OstreeDeployment *deployment;
+  g_autoptr(GPtrArray) old_deployments = NULL;
   g_autoptr(GPtrArray) new_deployments = NULL;
 
   gint rollback_index;
   guint i;
-  gint deployserial;
   gboolean ret = FALSE;
 
   self = (RollbackTransaction *) transaction;
@@ -268,27 +267,30 @@ rollback_transaction_execute (Transaction *transaction,
   if (rollback_index < 0)
     goto out;
 
-  deployments = ostree_sysroot_get_deployments (sysroot);
+  old_deployments = ostree_sysroot_get_deployments (sysroot);
   new_deployments = g_ptr_array_new_with_free_func (g_object_unref);
 
   /* build out the reordered array */
-  g_ptr_array_add (new_deployments, g_object_ref (deployments->pdata[rollback_index]));
-  for (i = 0; i < deployments->len; i++)
-  {
-    if (i == rollback_index)
-      continue;
 
-    g_ptr_array_add (new_deployments, g_object_ref (deployments->pdata[i]));
-  }
+  deployment = old_deployments->pdata[rollback_index];
+  g_ptr_array_add (new_deployments, g_object_ref (deployment));
 
-  csum = ostree_deployment_get_csum (deployments->pdata[rollback_index]);
-  deployserial = ostree_deployment_get_deployserial (deployments->pdata[rollback_index]);
   transaction_emit_message_printf (transaction,
                                    "Moving '%s.%d' to be first deployment",
-                                   csum, deployserial);
+                                   ostree_deployment_get_csum (deployment),
+                                   ostree_deployment_get_deployserial (deployment));
+
+  for (i = 0; i < old_deployments->len; i++)
+    {
+      if (i == rollback_index)
+        continue;
+
+      deployment = old_deployments->pdata[i];
+      g_ptr_array_add (new_deployments, g_object_ref (deployment));
+    }
 
   /* if default changed write it */
-  if (deployments->pdata[0] != new_deployments->pdata[0])
+  if (old_deployments->pdata[0] != new_deployments->pdata[0])
     ostree_sysroot_write_deployments (sysroot,
                                       new_deployments,
                                       cancellable,
@@ -570,7 +572,7 @@ upgrade_transaction_execute (Transaction *transaction,
           ostree_repo_transaction_set_ref (repo, remote, ref, NULL);
 
           transaction_emit_message_printf (transaction,
-                                           "deleting ref %s",
+                                           "Deleting ref '%s'",
                                            old_refspec);
 
           if (!ostree_repo_commit_transaction (repo, NULL, cancellable, error))
